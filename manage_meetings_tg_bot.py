@@ -14,6 +14,7 @@ def add_to_file(path, message):
 
 
 bot = telebot.TeleBot(get_file("secret/botAPI"))
+google_key = get_file("secret/googleCalendarAPI")
 
 
 @bot.message_handler(commands=["start"])
