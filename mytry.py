@@ -1,4 +1,3 @@
-import pprint
 from datetime import datetime, timedelta
 
 from google.oauth2 import service_account
@@ -6,7 +5,7 @@ from googleapiclient.discovery import build
 
 def construct_event(day, description, location): 
     start_date = datetime.strptime(day, '%Y-%m-%d').date()
-    end_date = start_date + timedelta(days=1)  # Calculate the end date as the next day
+    end_date = start_date + timedelta(days=1) 
 
     event = {
         'summary': 'Встреча, созданная ботом', 
@@ -21,11 +20,25 @@ def construct_event(day, description, location):
     }
     return event
 
+def find_available_days(): #ранняя версия надо бы доработать находит на дни когда есть встреча
+    available_days = []
+    today = datetime.now().date()
+    end_date = today + timedelta(days=14)  # Дата через 2 недели
+
+    current_date = today
+    while current_date < end_date:
+        if obj.check_availability(calendar_id = calendar, selected_day=current_date):
+            ate_str = current_date.strftime('%Y-%m-%d')
+            available_days.append(ate_str)
+        current_date += timedelta(days=1)
+
+    return available_days
+
 #email 	meetingbot@telegrambot-408815.iam.gserviceaccount.com
 
 class GoogleCalendar:
     SCOPES = ['https://www.googleapis.com/auth/calendar']
-    FILE_PATH = 'telegrambot-408815-e609454416ce.json'
+    FILE_PATH = 'telegrambot-408815-e609454416ce.json' #надо бы засекретить наверное потом
 
     def __init__(self):
         credentials = service_account.Credentials.from_service_account_file(
@@ -119,7 +132,6 @@ class GoogleCalendar:
                 return True
             else:
                 if len(events) == 1 and events[0]["summary"] == "Встреча, созданная ботом":
-                   print('something wierd happened here', selected_day)
                    return True
                 print(f"Events found on {selected_day}. You are not available.")
                 return False
@@ -127,17 +139,9 @@ class GoogleCalendar:
             print(f"An error occurred while checking availability: {e}")
             return False
 
-
-
-
 obj = GoogleCalendar()
-calendar = 'botalisa3@gmail.com'
-day = '2023-12-26'  # Example date
-description = 'yoyoyo'
-location = 'Иваново'
-new_description = 'my tummy hurts!!!! aaa'
 
-def find_available_days():
+def find_available_days(obj, calendar):
     available_days = []
     today = datetime.now().date()
     end_date = today + timedelta(days=14)  # Дата через 2 недели
@@ -150,5 +154,4 @@ def find_available_days():
         current_date += timedelta(days=1)
 
     return available_days
-print(find_available_days())
 
