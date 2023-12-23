@@ -28,7 +28,7 @@ def check_identifier(identifier):
 
 bot = telebot.TeleBot("6842927865:AAHf2hI-00VctL9xnrbRBChDAZ_lCI1N1tI")
 
-def construct_event(day, description, location): 
+def construct_event(day, description, location): #ок?
     start_date = datetime.strptime(day, '%Y-%m-%d').date()
     end_date = start_date + timedelta(days=1) 
 
@@ -45,7 +45,7 @@ def construct_event(day, description, location):
     }
     return event
 
-def find_available_days(obj, message): 
+def find_available_days(obj, message): #надо переписать 
     available_days = []
     today = datetime.now().date()
     end_date = today + timedelta(days=14)  
@@ -91,7 +91,7 @@ class GoogleCalendar:
             calendarId = calendar_id,
             body = body).execute()
     
-    def get_event_ids_by_day(self, calendar_id, day): 
+    def get_event_ids_by_day(self, calendar_id, day): #ок?
         try:
             event_ids = []
             events_result = self.service.events().list(
@@ -111,8 +111,10 @@ class GoogleCalendar:
         except Exception as e:
             print(f"An error occurred while retrieving event IDs: {e}")
             return []
-    def delete_event(self, calendar_id, event_id):
+        
+    def delete_event(self, calendar_id, date): #ок?
         try:
+            event_id = self.get_event_ids_by_day(calendar_id=calendar_id, day=date)[0]
             self.service.events().delete(
                 calendarId=calendar_id, 
                 eventId=event_id
@@ -121,7 +123,7 @@ class GoogleCalendar:
         except Exception as e:
             print(f"An error occurred while deleting the event: {e}")
     
-    def change_date(self, calendar_id, old_start_date, new_start_date):
+    def change_date(self, calendar_id, old_start_date, new_start_date): #ок?
         try:
             event_id = self.get_event_ids_by_day(calendar_id=calendar_id, day=old_start_date)[0]
             event = self.service.events().get(calendarId=calendar_id, eventId=event_id).execute()
@@ -137,7 +139,7 @@ class GoogleCalendar:
             print(f"An error occurred while updating the event: {e}")
             return None
 
-    def change_description(self, calendar_id, date, new_description):
+    def change_description(self, calendar_id, date, new_description): #ок?
         try:
             event_id = self.get_event_ids_by_day(calendar_id=calendar_id, day=date)[0]
             event = self.service.events().get(calendarId=calendar_id, eventId=event_id).execute()
@@ -150,8 +152,22 @@ class GoogleCalendar:
         except Exception as e:
             print(f"An error occurred while updating the event description: {e}")
             return None
+
+    def change_location(self, calendar_id, date, new_location): #ок?
+        try:
+            event_id = self.get_event_ids_by_day(calendar_id=calendar_id, day=date)[0]
+            event = self.service.events().get(calendarId=calendar_id, eventId=event_id).execute()
+
+            event['location'] = new_location
+
+            updated_event = self.service.events().update(calendarId=calendar_id, eventId=event_id, body=event).execute()
+            print(f"Location of event with ID {event_id} has been updated to: {new_location}.")
+            return updated_event
+        except Exception as e:
+            print(f"An error occurred while updating the event location: {e}")
+            return None
         
-    def check_availability(self, calendar_id, selected_day):
+    def check_availability(self, calendar_id, selected_day): #очень надо переписать вообще не как надо работает
         try:
             time_min = f"{selected_day}T00:00:00Z"
             time_max = f"{selected_day}T23:59:59Z"
@@ -174,7 +190,7 @@ obj = GoogleCalendar()
 
 
 
-@bot.message_handler(commands=["start"]) 
+@bot.message_handler(commands=["start"]) #ок?
 def start(message):
     conn_users = sqlite3.connect('users.db')
     cursor_users = conn_users.cursor()
@@ -191,17 +207,15 @@ def start(message):
     cursor_meetings = conn_meetings.cursor()
     cursor_meetings.execute('''CREATE TABLE IF NOT EXISTS meetings (
                                 id INTEGER PRIMARY KEY,
-                                meeting_id TEXT,
                                 chat_id TEXT,
-                                date TEXT,
-                                participants TEXT
+                                date TEXT
                                 )''')
     conn_meetings.commit()
     conn_meetings.close()
 
     bot.send_message(message.chat.id, text = 'Привет! Список всех моих комманд в /help')
 
-def get_users_db_content(): 
+def get_users_db_content(): #вспомогательная потом удалить
     conn_users = sqlite3.connect('users.db')
     cursor_users = conn_users.cursor()
 
@@ -214,21 +228,31 @@ def get_users_db_content():
         content += f"ID: {row[0]}, User ID: {row[1]}, Chat ID: {row[2]}, Calendar Identifier: {row[3]}\n"
 
     conn_users.close()
-
     return content
 
-@bot.message_handler(commands=["instruction"])
+def conn_meetings_db_content(): #вспомогательная потом удалить
+    conn_meetings = sqlite3.connect('meetings.db')
+    cursor_meetings = conn_meetings.cursor()
+    cursor_meetings.execute("SELECT * FROM meetings")
+    rows = cursor_meetings.fetchall()
+    content = "Содержимое базы данных встреч:\n"
+    for row in rows:
+        content += f"ID: {row[0]}, Chat ID: {row[1]}, Дата: {row[2]}\n"
+    conn_meetings.close()
+    return content
+
+@bot.message_handler(commands=["instruction"]) #ок?
 def instruction(message): 
     text = "Чтобы подключить доступ к гугл календарю, нужно зайти на сайт calendar.google.com , выбрать нужный календарь, добавить почту meetingbot@telegrambot-408815.iam.gserviceaccount.com в список пользователей, которым доступен календарь, для внесения изменений и предоставления доступа, вызвать в телеграм боте команду /access и отправить dentifier"
     bot.send_message(message.chat.id, text)
 
-@bot.message_handler(commands=["access"])
+@bot.message_handler(commands=["access"]) #ок?
 def access(message):
     bot.send_message(message.chat.id,
                      "Отправь мне идентификатор календаря, подробнее о подключении бота в /instruction")
     bot.register_next_step_handler(message, identifier)
 
-def identifier(message): 
+def identifier(message): #ок?
     identifier = message.text.strip()
     if check_identifier(identifier=identifier):
         conn_users = sqlite3.connect('users.db')
@@ -248,7 +272,6 @@ def identifier(message):
             bot.send_message(message.chat.id, text = 'Спасибо, зарегистрировал тебя')
         conn_users.close()
         
-        # вместо печати всей базы данных печатай только то что 
         bot.send_message(message.chat.id, 'База данных пользователей после изменений:\n' + get_users_db_content())
     elif identifier == '/instruction':
         instruction(message)
@@ -258,7 +281,7 @@ def identifier(message):
 
 
 
-@bot.message_handler(commands=["manage_meeting"])
+@bot.message_handler(commands=["manage_meeting"]) #ок?
 def manage_meeting(message):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton(text = 'Назначить встречу', callback_data='set_meeting'))
@@ -269,23 +292,27 @@ def manage_meeting(message):
     markup.add(types.InlineKeyboardButton(text = 'Показать ближайшие назначенные встречи', callback_data='show_meetings'))
     bot.send_message(message.chat.id, text = "Выбери функцию", reply_markup=markup)
 
-@bot.callback_query_handler(func = lambda callback: True)
+@bot.callback_query_handler(func = lambda callback: True) #ок?
 def callback_messege(callback): 
     if callback.data == 'set_meeting':
         bot.send_message(callback.message.chat.id, text = "Напиши мне дату на которую хочешь назначить встречу в формате yyyy-mm-dd или напиши мне сообщение 'бот, найди свободные дни' и я подберу свободные дни в ближайшие 2 недели")
         bot.register_next_step_handler(callback.message, set_meeting)
     elif callback.data == 'delete_meeting':
         bot.send_message(callback.message.chat.id, text = "Напиши мне дату встречи, которую хочешь отменить в формате yyyy-mm-dd")
+        bot.register_next_step_handler(callback.message, delete_meeting)
     elif callback.data == 'change_date':
         bot.send_message(callback.message.chat.id, text = "Напиши мне 2 даты через пробел в формате yyyy-mm-dd. Сначала дату встречи, которую хочешь перенести, затем на какую дату хочешь перенести")
+        bot.register_next_step_handler(callback.message, change_date)
     elif callback.data == 'change_description':
         bot.send_message(callback.message.chat.id, text = "Напиши мне дату встречи в формате yyyy-mm-dd и через пробел новое описание(кавычки ставить не нужно)")
+        bot.register_next_step_handler(callback.message, change_description)
     elif callback.data == 'change_location':
         bot.send_message(callback.message.chat.id, text = "Напиши мне дату встречи в формате yyyy-mm-dd и через пробел новое место встречи(кавычки ставить не нужно)")
-    else:
-        bot.send_message(callback.message.chat.id, text = '')
+        bot.register_next_step_handler(callback.message, change_location)
+    else: 
+        show_meetings(callback.message.chat.id)
 
-def set_meeting(message):
+def set_meeting(message): #проблема из за того что find_available_days некорректно работает 
 
     if message.text.strip()=='бот, найди свободные дни':
         bot.send_message(message.chat.id, text = 'Ищу...\n')
@@ -305,17 +332,130 @@ def set_meeting(message):
         calendar_identifiers = cursor.fetchall()
         conn_users.close()
 
+        conn_meetings = sqlite3.connect('meetings.db')
+        cursor_meetings = conn_meetings.cursor()
+        cursor_meetings.execute("INSERT INTO meetings (chat_id, date) VALUES (?, ?)",
+                                (str(message.chat.id), message.text.strip()))
+        conn_meetings.commit()
+
         for calendar in calendar_identifiers:
             calendar = calendar[0]
             obj.add_event(calendar_id=calendar, body=event)
-        
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton(text = 'Да', callback_data='add'))
-        markup.add(types.InlineKeyboardButton(text = 'Нет', callback_data='no'))
-        bot.send_message(message.chat.id, text = 'Добавили встречу, хотите добавить ей описание?', reply_markup=markup)
+
+        bot.send_message(message.chat.id, text = 'Встреча была добавлена')
+
+        cursor_meetings.execute("SELECT * FROM meetings")
+        rows = cursor_meetings.fetchall()
+        content = "Содержимое базы данных встреч:\n"
+        for row in rows:
+            content += f"ID: {row[0]}, Chat ID: {row[1]}, Дата: {row[2]}\n"
+        conn_meetings.close()
+        bot.send_message(message.chat.id, text=content)
 
 
-@bot.message_handler(commands=['help'])
+def delete_meeting(message): #ок?
+
+    bot.send_message(message.chat.id, text="Начинаю работу")
+
+    conn_users = sqlite3.connect('users.db')
+    cursor = conn_users.cursor()
+    cursor.execute("SELECT calendar_identifier FROM users WHERE chat_id = ?", (message.chat.id,))
+    calendar_identifiers = cursor.fetchall()
+    conn_users.close()
+
+    bot.send_message(message.chat.id, text=calendar_identifiers)
+
+    conn_meetings = sqlite3.connect('meetings.db')
+    cursor_meetings = conn_meetings.cursor()
+    cursor_meetings.execute("DELETE FROM meetings WHERE chat_id = ? AND date = ?", (message.chat.id, message.text.strip()))
+    conn_meetings.commit()
+    conn_meetings.close()
+    for calendar in calendar_identifiers:
+        calendar = calendar[0]
+        obj.delete_event(calendar_id=calendar, date=message.text.strip())
+
+    bot.send_message(message.chat.id, text='Встреча была удалена')
+
+    content = conn_meetings_db_content()
+    bot.send_message(message.chat.id, text=content)
+    
+
+
+def change_date(message): #ок?
+    m = message.text.strip()
+    date1, date2 = m.split(' ')[0], m.split(' ')[-1]
+
+    conn_users = sqlite3.connect('users.db')
+    cursor = conn_users.cursor()
+    cursor.execute("SELECT calendar_identifier FROM users WHERE chat_id = ?", (message.chat.id,))
+    calendar_identifiers = cursor.fetchall()
+    conn_users.close()
+
+    # Изменяем дату в базе данных 'meetings.db'
+    conn_meetings = sqlite3.connect('meetings.db')
+    cursor_meetings = conn_meetings.cursor()
+    cursor_meetings.execute("UPDATE meetings SET date = ? WHERE chat_id = ? AND date = ?", (date2, message.chat.id, date1))
+    conn_meetings.commit()
+    conn_meetings.close()
+
+    for calendar in calendar_identifiers:
+        calendar = calendar[0]
+        obj.change_date(calendar_id=calendar, old_start_date=date1, new_start_date=date2)
+
+    bot.send_message(message.chat.id, text='Встреча была перенесена')
+
+    content = conn_meetings_db_content()
+    bot.send_message(message.chat.id, text=content)
+
+
+def change_description(message): #ок?
+    m = message.text.strip()
+    date, desc = m[:m.find(' ')], m[m.find(' ')+1:]
+    conn_users = sqlite3.connect('users.db')
+    cursor = conn_users.cursor()
+    cursor.execute("SELECT calendar_identifier FROM users WHERE chat_id = ?", (message.chat.id,))
+    calendar_identifiers = cursor.fetchall()
+    conn_users.close()
+
+    for calendar in calendar_identifiers:
+        calendar = calendar[0]
+        obj.change_description(calendar_id=calendar, date=date, new_description=desc)
+
+    bot.send_message(message.chat.id, text = 'Новое описание было добавлено')
+
+def change_location(message): #ок?
+    m = message.text.strip()
+    date, loc = m[:m.find(' ')], m[m.find(' ')+1:]
+    conn_users = sqlite3.connect('users.db')
+    cursor = conn_users.cursor()
+    cursor.execute("SELECT calendar_identifier FROM users WHERE chat_id = ?", (message.chat.id,))
+    calendar_identifiers = cursor.fetchall()
+    conn_users.close()
+
+    for calendar in calendar_identifiers:
+        calendar = calendar[0]
+        obj.change_location(calendar_id=calendar, date=date, new_location=loc)
+
+    bot.send_message(message.chat.id, text = 'Новое описание было добавлено')
+
+def show_meetings(chat_id): #ок?
+    conn_meetings = sqlite3.connect('meetings.db')
+    cursor_meetings = conn_meetings.cursor()
+    cursor_meetings.execute("SELECT * FROM meetings WHERE chat_id = ? ORDER BY date LIMIT 3", (chat_id,))
+    rows = cursor_meetings.fetchall()
+    conn_meetings.close()
+
+    if rows:
+        content = "Предстоящие встречи:\n"
+        for row in rows:
+            content += row[2]
+            content += '\n'
+        bot.send_message(chat_id=chat_id, text=content)
+    else:
+        bot.send_message(chat_id=chat_id, text="Список предстоящих встреч пуст.")
+
+
+@bot.message_handler(commands=['help']) #ок?
 def help(message):
     bot.send_message(message.chat.id, "Привет! Я бот, который поможет тебе планировать встречи\n"
                                       "вот список моих команд:\n"
