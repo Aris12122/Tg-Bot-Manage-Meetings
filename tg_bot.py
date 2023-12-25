@@ -4,6 +4,9 @@ from telebot import types
 import sqlite3
 from google_calendar import GoogleCalendar
 from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
+from io import BytesIO
+from statistics_bot import get_picture
 
 error_message = "Что-то пошло не так, пожалуйста напишите @Aris12122"
 
@@ -150,6 +153,7 @@ def set_meeting(message):
                available_days.append(current_date.strftime('%Y-%m-%d'))
 
             current_date += timedelta(days=1) 
+
         text = "Свободные даты в ближайшие 2 недели:\n"
         for date in available_days:
             text+=date
@@ -277,24 +281,76 @@ def show_meetings(chat_id):
     else:
         bot.send_message(chat_id=chat_id, text="Список предстоящих встреч пуст.")
 
-def get_tomorrows_meetings():
-    tomorrow = datetime.now() + timedelta(days=1)
-    tomorrow_date = tomorrow.strftime('%Y-%m-%d')
+def count_total_meetings(chat_id):
+    conn = sqlite3.connect('meetings.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM meetings WHERE chat_id=?", (chat_id,))
+    count_total = cursor.fetchone()[0]
+
+    conn.close()
+    return count_total
+
+def count_m_by_weeks(chat_id):
 
     conn = sqlite3.connect('meetings.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM meetings WHERE date = ?", (tomorrow_date,))
-    meetings = cursor.fetchall()
+    y = []
+    cursor.execute("SELECT MIN(date) FROM meetings WHERE chat_id=?", (chat_id,))
 
+    first_meeting_date = cursor.fetchone()[0]
+    first_meeting_date = datetime.strptime(first_meeting_date, '%Y-%m-%d')
+
+    start_of_week = first_meeting_date - timedelta(days=first_meeting_date.weekday())
+    end_of_week = start_of_week +  timedelta(days=6, hours=23, minutes=59)
+
+    today = datetime.today()
+    while end_of_week < today:
+        start_of_week = end_of_week + timedelta(minutes=1)
+        end_of_week = start_of_week + timedelta(days=6, hours=23, minutes=59)
+        cursor.execute("SELECT COUNT(*) FROM meetings WHERE chat_id=? AND date BETWEEN ? AND ?",
+                       (chat_id, start_of_week, end_of_week))
+        num_meetings = cursor.fetchone()[0]
+        y.append(num_meetings)
+    
     conn.close()
+    return y
+    
 
-    return meetings
+@bot.message_handler(commands=["statistics"]) 
+def instruction(message): 
+    y = count_m_by_weeks(message.chat.id)
 
-def reminder():
-    meetings = get_tomorrows_meetings()
-    for m in meetings:
-        chat_id = m[1]
-        bot.send_message(chat_id=chat_id, text="Напоминание! На завтра запланирована встреча")
+    if y[-1]==0:
+        bot.send_message(message.chat.id, text = 'На этой неделе пока не запланировано встреч')
+
+    else:
+        mean = sum(y)/len(y)
+        percent_last =  int(y[-1]/mean*100//1)
+        text = 'Количество встреч на неделе: ' + str(y[-1]) +'\n'
+        if percent_last < 100:
+            text+="Это на " + str(100-percent_last) + "% меньше чем обычно" + '\n'
+        else:
+            text+="Это на " + str(percent_last-100) + "% больше чем обычно" + '\n'
+
+        text+='Среднее количество встреч на неделе: ' + str(mean)
+        bot.send_message(message.chat.id, text = text)
+    plt.switch_backend('Agg') 
+    plt.bar(range(1, len(y)+1), y)
+    plt.title('Количество встреч по неделям')
+    plt.xlabel('Неделя')
+    plt.ylabel('Количество встреч')
+
+    plt.savefig('meeting_chart.png')  
+
+    # Отправка графика
+    with open('meeting_chart.png', 'rb') as photo:
+        bot.send_photo(message.chat.id, photo)
+
+    plt.close()  
+
+
+
 
 @bot.message_handler(commands=['help'])
 def help(message):
